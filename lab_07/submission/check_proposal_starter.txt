@@ -1,0 +1,23 @@
+FAIL: proposal fields incomplete or invalid
+ - question requires a concrete explanation/source
+ - hypothesis requires a concrete explanation/source
+ - biological_inspiration_source requires a concrete explanation/source
+ - independent_variable requires a concrete explanation/source
+ - AHM_equation requires a concrete explanation/source
+ - SO2_CPG_equation requires a concrete explanation/source
+ - integration_description requires a concrete explanation/source
+ - eachcondition needs change and>=3repeats
+ - eachcondition needs change and>=3repeats
+ - at least2 distinct metrics with complete names
+ - everymetric needs name/unit/measurement/missingrule
+ - everymetric needs name/unit/measurement/missingrule
+ - atleast3concretecontrols
+ - simulation_plan must be specified
+ - real_robot_plan must be specified
+ - clock_correlation_plan must be specified
+ - safety_stop_plan must be specified
+ - order_counterbalancing must be specified
+ - paired_seed_or_participant_plan must be specified
+ - expected_input_ids_before_run must be specified
+ - timeline must be specified
+ - parameter name/value/unit/provenance incomplete; numeric values must be finite

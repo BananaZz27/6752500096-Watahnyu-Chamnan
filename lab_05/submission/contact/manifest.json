@@ -1,0 +1,18 @@
+{
+  "all-inverted.csv": "a58b21da4fe1e6eb74d0db19e00a59ad5a4cfbba9c90eb27847bdd1f8e8b95ef",
+  "config.json": "39e1a22e794d0b86dfed2e9eebaf258e9e7fc02418c159fcbfe8e67fabd71892",
+  "constant.csv": "631e72bbb669e66ca35cf78a5448702d85304b617fd309ddd1f2c099e69f891d",
+  "fault.csv": "41c5ee1bbf07822e77e9a224e2ff3733503ada9b1e37264305746bccc98ebec6",
+  "gain-offset.csv": "21fb2cdf013d37a54c511e36c2c28c6261a57207447208622ec3c2cc5125ce9e",
+  "matched.csv": "4fb14878ea2f1061557d7cebc565f17473dc3fb79d41c7731c9f3569c3727649",
+  "metrics.json": "150f4fd215c0c8c9419429d5b822b2249198c780cf0afb9212615123e73cc521",
+  "mixed-delay.csv": "742b1f4e871e5548bd2d66dffefeff2fddc23bf7793d236cdc056d873314c17c",
+  "report.html": "aa49a1b04b100915c490424b041a4e2c5a8b85ee05deb0c1ae42ef9e416a8a01",
+  "source_snapshot/contact_demo.py": "e672fe7e28fd1e62114302ded8a4b1a7998616807a7c6e3212d38a5ed83fd42a",
+  "source_snapshot/contact_report_template.html": "c570065ba1985626729598938485aa18390c9b4ca451edc30efadfbb148a9aaf",
+  "source_snapshot/course_model.py": "88ede293fa3ac9ed2fc326ac7427a019a363b313bf8eacd8c7ee8a378f67747c",
+  "source_snapshot/handoff_contract.json": "50debd932cc9f548ba2e01fafc2b22476640d276e22c09f6b82090493b4e9fca",
+  "source_snapshot/lab05.py": "cf2477146f5e2f11a42ea9e35ad135bf59d0af841ed8aa2c5535fc9e35f5c7c4",
+  "source_snapshot/report_template.html": "8ad1e1850f6696322a80ebb3e72feadcc90a42691edecdccbd20a7b17797269d",
+  "source_snapshot/SOURCES.md": "062c520732e6f5ff733c8af769963d5727981f8bdde79fd66299ab2005990931"
+}

@@ -1,9 +1,0 @@
-Checked 40 transition pairs; contract=baseline; failures=7
-  interested + timeout: returned None; transition does not satisfy the baseline worksheet contract
-  happy + timeout: returned None; transition does not satisfy the baseline worksheet contract
-  normal + idle: returned None; transition does not satisfy the baseline worksheet contract
-  normal + touch: returned None; transition does not satisfy the baseline worksheet contract
-  interested + touch: returned None; transition does not satisfy the baseline worksheet contract
-  happy + touch: returned None; transition does not satisfy the baseline worksheet contract
-  sleepy + touch: returned None; transition does not satisfy the baseline worksheet contract
-FAIL: complete TODOs in student_policy.py, then check again

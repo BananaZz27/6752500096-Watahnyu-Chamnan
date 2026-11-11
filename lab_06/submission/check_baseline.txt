@@ -1,2 +1,0 @@
-Checked 40 transition pairs; contract=baseline; failures=0
-PASS: transition contract complete

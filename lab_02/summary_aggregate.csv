@@ -1,0 +1,5 @@
+﻿condition,noise_sigma_m,delay_ms,trials,latency_enter_s_mean,latency_enter_s_sd,latency_exit_s_mean,latency_exit_s_sd,recovery_time_s_mean,recovery_time_s_sd,false_trigger_rate_per_min_mean,false_trigger_rate_per_min_sd,extra_switches_mean,extra_switches_sd,mean_abs_command_change_mean,mean_abs_command_change_sd,invalid_sample_count_mean,invalid_sample_count_sd
+C0,0.01,0,5,0.002857143,0,2.857142857,0,2.857142857,0,2.997002997,0,0,0,0.0012,0,0,0
+C1,0.01,0,5,0.018857143,0.02607681,0.029142857,0.010954451,0.180571429,0.058637593,8.391608392,5.764850368,12.4,2.607680962,0.00864,0.001564609,0,0
+C2,0.01,0,5,0.406857143,0.043358967,0.453142857,0.035777088,0.454285714,0.035225223,0,0,0,0,0.0012,0,0,0
+C3,0.01,0,5,0.042857143,0.024494897,0.089142857,0.041472883,0.109142857,0.017888544,1.798201798,1.641526146,1.6,0.894427191,0.00464944,6.30E-05,0,0

@@ -31,32 +31,40 @@ class StudentController:
         self.filtered_distance: float | None = None
 
     def update_filter(self, raw_distance_m: float) -> float:
-        """Apply a first-order low-pass filter to the latest sensor reading."""
+        """TODO 1: implement the low-pass recurrence from slide 14."""
         if self.filtered_distance is None:
-            self.filtered_distance = raw_distance_m
-        else:
-            beta = self.p.beta
-            self.filtered_distance = (
-                beta * raw_distance_m + (1.0 - beta) * self.filtered_distance
-            )
-        return self.filtered_distance
+            return raw_distance_m
+
+        return self.p.beta * self.filtered_distance + (1.0 - self.p.beta) * raw_distance_m
 
     def update_state_single_threshold(self, distance_m: float) -> str:
-        """Set NEAR below the threshold and FAR at or above it."""
-        return "NEAR" if distance_m < self.p.threshold_m else "FAR"
+        """TODO 2: set NEAR below T and FAR otherwise."""
+        if distance_m < self.p.threshold_m:
+            return "NEAR"
+        else:
+            return "FAR"
 
     def update_state_hysteresis(self, distance_m: float) -> str:
-        """Switch state at separate enter/exit thresholds to reduce chatter."""
-        if self.state == "FAR" and distance_m < self.p.enter_threshold_m:
-            return "NEAR"
-        if self.state == "NEAR" and distance_m > self.p.exit_threshold_m:
-            return "FAR"
+        """TODO 3: change state only at T_enter or T_exit."""
+        if self.state == "FAR":
+            if distance_m < self.p.enter_threshold_m:
+                return "NEAR"
+            else:
+                return "FAR"
+        elif self.state == "NEAR":
+            if distance_m > self.p.exit_threshold_m:
+                return "FAR"
+            else:
+                return "NEAR"
+
         return self.state
 
     def proportional_command(self, distance_m: float) -> float:
-        """Compute proportional position error and clamp to actuator limits."""
-        command = self.p.kp * (self.p.target_distance_m - distance_m)
-        return max(self.p.command_min, min(self.p.command_max, command))
+        """TODO 4: calculate Kp * error and clamp the command."""
+        error = self.p.target_distance_m - distance_m
+        raw_command = self.p.kp * error
+        clamped_command = max(self.p.command_min, min(raw_command, self.p.command_max))
+        return clamped_command
 
     def safe_command(self) -> float:
         """The simulator uses zero command for an invalid or stale sample."""
@@ -64,4 +72,4 @@ class StudentController:
 
 
 if __name__ == "__main__":
-    print("StudentController TODOs are complete. Run lab02.py with --controller-source student.")
+    print("Complete TODO 1-4, then run lab02.py --controller-source student.")

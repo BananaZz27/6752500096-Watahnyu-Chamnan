@@ -1,8 +1,8 @@
 {
   "protocol": "robustness-full",
   "controller_source": "student",
-  "student_file": "/home/claude/potiwat/rae67_bio_ins/lab_02/student_controller.py",
-  "student_file_sha256": "141e8213038b7f84531fff47d359984d3ee1b45364fcfff8971ff84004dc5131",
+  "student_file": "D:\\RAE67_bio_ins\\lab_02\\student_controller.py",
+  "student_file_sha256": "2b0cdf01fbc34b9239563c252f84bcd69cd4b142048f15dee22e41012a334860",
   "robustness_condition": "C1",
   "seed_base": 202602,
   "trial_count": 45,

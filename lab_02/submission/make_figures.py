@@ -1,15 +1,16 @@
-"""Create the Lab 02 figures from the raw trial CSVs in this folder.
+"""Build every Lab 02 figure from the raw trial CSVs in this folder.
 
 Run from lab_02/:  python submission/make_figures.py
 
-Event times use the same helpers as lab02.py (_crossing_time and
-_first_correct_latency), so the markers match summary_trials.csv exactly.
-Nothing here changes a raw CSV.
+Crossing and first-correct-response times come from the same helpers that
+lab02.py uses for summary_trials.csv, so the markers match the metrics.
+No raw CSV is modified.
 """
 
 from __future__ import annotations
 
 import csv
+import json
 import math
 import sys
 from pathlib import Path
@@ -26,8 +27,19 @@ from lab02 import LabConfig, _crossing_time, _first_correct_latency  # noqa: E40
 
 OUT = HERE / "figures"
 CFG = LabConfig()
-C_TRUE, C_RAW, C_FILT = "#161616", "#A7ADB1", "#147A8C"
-C_THR, C_ENTER, C_EXIT = "#B84A4A", "#147A8C", "#C17824"
+
+# Validated categorical order (same as Lab03-05): one hue per controller.
+COND_COLOUR = {"C0": "#2a78d6", "C1": "#eb6834", "C2": "#1baf7a", "C3": "#eda100"}
+INK, MUTED, GRID = "#1f2328", "#6e7781", "#d0d7de"
+RAW = "#9aa3ab"
+FILT = "#2a78d6"
+
+plt.rcParams.update({
+    "font.size": 9, "axes.edgecolor": MUTED, "axes.labelcolor": INK,
+    "xtick.color": MUTED, "ytick.color": MUTED, "axes.spines.top": False,
+    "axes.spines.right": False, "axes.grid": True, "grid.color": GRID,
+    "grid.linewidth": 0.6, "legend.frameon": False, "lines.linewidth": 2,
+})
 
 
 def load(path: Path) -> list[dict[str, str]]:
@@ -39,87 +51,67 @@ def num(value: str) -> float:
     return math.nan if value == "" else float(value)
 
 
-def events(rows: list[dict[str, str]]) -> dict[str, float | None]:
-    enter_x = _crossing_time(rows, "down", CFG.threshold_m)
-    exit_x = _crossing_time(rows, "up", CFG.threshold_m)
-    enter_lat = _first_correct_latency(rows, enter_x, "NEAR")
-    exit_lat = _first_correct_latency(rows, exit_x, "FAR")
-    return {
-        "enter_cross": enter_x,
-        "exit_cross": exit_x,
-        "enter_lat": enter_lat,
-        "exit_lat": exit_lat,
-        "enter_resp": None if enter_lat is None else enter_x + enter_lat,
-        "exit_resp": None if exit_lat is None else exit_x + exit_lat,
-    }
+def events(rows):
+    out = {}
+    for kind, direction, state in (("enter", "down", "NEAR"), ("exit", "up", "FAR")):
+        cross = _crossing_time(rows, direction, CFG.threshold_m)
+        lat = _first_correct_latency(rows, cross, state)
+        out[kind] = (cross, lat, None if lat is None else cross + lat)
+    return out
 
 
-def mark_events(ax, ev: dict[str, float | None], labels: bool) -> None:
-    """Physical crossing (black dashed) and first correct response (coloured)."""
-    for key, colour, name in (("enter", C_ENTER, "enter"), ("exit", C_EXIT, "exit")):
-        cross, resp = ev[f"{key}_cross"], ev[f"{key}_resp"]
-        ax.axvline(cross, color="black", linestyle="--", linewidth=1.1,
-                   label=f"physical crossing of 0.35 m ({name})" if labels else None)
+def mark(ax, ev, legend):
+    for kind, ls in (("enter", "-"), ("exit", "-")):
+        cross, _, resp = ev[kind]
+        ax.axvline(cross, color=INK, ls="--", lw=1.1,
+                   label="physical crossing of 0.35 m" if legend and kind == "enter" else None)
         if resp is not None:
-            ax.axvline(resp, color=colour, linestyle="-", linewidth=1.6,
-                       label=f"first correct response ({name})" if labels else None)
+            ax.axvline(resp, color="#8250df", ls=ls, lw=1.5,
+                       label="first correct response" if legend and kind == "enter" else None)
 
 
 def trial_figure(csv_path: Path, out_path: Path) -> None:
-    """Full 20 s view of one trial with crossing and first-response markers."""
     rows = load(csv_path)
     cond = rows[0]["condition"]
     ev = events(rows)
     t = [float(r["time_s"]) for r in rows]
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(11, 6.8), sharex=True, constrained_layout=True)
-    ax1.plot(t, [float(r["true_distance_m"]) for r in rows], color=C_TRUE, lw=2, label="true distance")
-    ax1.plot(t, [num(r["raw_distance_m"]) for r in rows], color=C_RAW, lw=1, alpha=0.9, label="raw (sensor)")
-    filtered = [num(r["filtered_distance_m"]) for r in rows]
-    if any(not math.isnan(v) for v in filtered):
-        ax1.plot(t, filtered, color=C_FILT, lw=1.8,
-                 label="filtered (logged, but C1 decides from raw)" if cond == "C1" else "filtered")
-    ax1.axhline(CFG.threshold_m, color=C_THR, ls="--", lw=1.3, label="T = 0.35 m")
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 5.6), sharex=True, constrained_layout=True,
+                                   gridspec_kw={"height_ratios": [2.2, 1]})
+    ax1.plot(t, [num(r["raw_distance_m"]) for r in rows], color=RAW, lw=1, label="raw (sensor)")
+    ax1.plot(t, [float(r["true_distance_m"]) for r in rows], color=INK, lw=2, label="true distance")
+    if cond != "C1":
+        ax1.plot(t, [num(r["filtered_distance_m"]) for r in rows], color=FILT, lw=1.6, label="filtered (beta 0.25)")
+    ax1.axhline(CFG.threshold_m, color=MUTED, ls=":", lw=1.3, label="T = 0.35 m")
     if cond == "C2":
-        ax1.axhline(CFG.enter_threshold_m, color=C_FILT, ls=":", lw=1.3, label="T_enter = 0.32 m")
-        ax1.axhline(CFG.exit_threshold_m, color=C_EXIT, ls=":", lw=1.3, label="T_exit = 0.38 m")
-    mark_events(ax1, ev, labels=True)
+        for y, name in ((CFG.enter_threshold_m, "T_enter 0.32"), (CFG.exit_threshold_m, "T_exit 0.38")):
+            ax1.axhline(y, color=COND_COLOUR["C2"], ls=":", lw=1.1)
+            ax1.text(19.9, y + 0.004, name, ha="right", va="bottom", fontsize=7.5, color=INK)
+    mark(ax1, ev, legend=True)
     ax1.set_ylabel("distance (m)")
-    ax1.set_ylim(top=0.82)  # head-room so the legend does not cover the trajectory
-    ax1.grid(alpha=0.25)
-    ax1.legend(loc="upper center", ncol=3, fontsize=8, frameon=True)
+    ax1.set_ylim(0.18, 0.80)
+    ax1.legend(loc="lower left", ncol=2, fontsize=8)
 
-    ax2.plot(t, [float(r["command"]) for r in rows], color=C_EXIT, lw=1.6, label="command u")
-    ax2.step(t, [1 if r["state"] == "NEAR" else 0 for r in rows], where="post", color=C_FILT, lw=1.4,
-             label="state (NEAR = 1)")
-    mark_events(ax2, ev, labels=False)
-    for r in rows:
-        if r["event_label"] in ("ENTER_NEAR", "EXIT_NEAR"):
-            ax2.axvline(float(r["time_s"]), color=C_THR, alpha=0.18, lw=0.8)
+    ax2.step(t, [1 if r["state"] == "NEAR" else 0 for r in rows], where="post",
+             color=COND_COLOUR[cond], lw=1.6)
+    mark(ax2, ev, legend=False)
+    ax2.set_yticks([0, 1], ["FAR", "NEAR"])
+    ax2.set_ylim(-0.15, 1.15)
     ax2.set_xlabel("time (s)")
-    ax2.set_ylabel("command / state")
-    ax2.grid(alpha=0.25)
-    ax2.legend(loc="center right", fontsize=8)
-
-    def fmt(value: float | None) -> str:
-        return "n/a" if value is None else f"{value:.3f} s"
-
-    fig.suptitle(
-        f"{rows[0]['trial_id']}  |  sigma = {rows[0]['noise_sigma_m']} m, delay = {rows[0]['delay_ms']} ms  |  "
-        f"latency enter {fmt(ev['enter_lat'])}, exit {fmt(ev['exit_lat'])}",
-        fontsize=10,
-    )
+    ax2.set_ylabel(f"{cond} state")
+    switches = sum(1 for r in rows if r["event_label"] in ("ENTER_NEAR", "EXIT_NEAR"))
+    fmt = lambda v: "n/a" if v is None else f"{v:.3f} s"  # noqa: E731
+    fig.suptitle(f"{rows[0]['trial_id']}: sigma {rows[0]['noise_sigma_m']} m, delay {rows[0]['delay_ms']} ms  |  "
+                 f"latency enter {fmt(ev['enter'][1])}, exit {fmt(ev['exit'][1])}  |  switches {switches}",
+                 fontsize=9.5, color=INK)
     fig.savefig(out_path, dpi=160)
     plt.close(fig)
 
 
 def zoom_figure(c1_csv: Path, c2_csv: Path, out_path: Path) -> None:
-    """C1 and C2 side by side around the enter and exit crossings."""
     trials = {"C1": load(c1_csv), "C2": load(c2_csv)}
-    windows = {"enter": (6.3, 7.8), "exit": (12.6, 14.1)}
-    fig, axes = plt.subplots(
-        4, 2, figsize=(11, 6.6), constrained_layout=True,
-        gridspec_kw={"height_ratios": [3, 1, 3, 1]},
-    )
+    windows = {"enter": (6.4, 7.7), "exit": (12.7, 14.0)}
+    fig, axes = plt.subplots(4, 2, figsize=(10, 6.2), constrained_layout=True,
+                             gridspec_kw={"height_ratios": [2.4, 1, 2.4, 1]})
     for col, (kind, (w0, w1)) in enumerate(windows.items()):
         for block, cond in enumerate(("C1", "C2")):
             rows = trials[cond]
@@ -127,144 +119,177 @@ def zoom_figure(c1_csv: Path, c2_csv: Path, out_path: Path) -> None:
             ax_d, ax_s = axes[2 * block][col], axes[2 * block + 1][col]
             sel = [r for r in rows if w0 <= float(r["time_s"]) <= w1]
             t = [float(r["time_s"]) for r in sel]
-            ax_d.plot(t, [float(r["true_distance_m"]) for r in sel], color=C_TRUE, lw=2, label="true")
-            ax_d.plot(t, [num(r["raw_distance_m"]) for r in sel], color=C_RAW, lw=1.2, label="raw")
+            ax_d.plot(t, [num(r["raw_distance_m"]) for r in sel], color=RAW, lw=1.1, label="raw")
+            ax_d.plot(t, [float(r["true_distance_m"]) for r in sel], color=INK, lw=2, label="true")
             if cond == "C2":
-                ax_d.plot(t, [num(r["filtered_distance_m"]) for r in sel], color=C_FILT, lw=1.8, label="filtered")
-                ax_d.axhline(CFG.enter_threshold_m, color=C_FILT, ls=":", lw=1.2, label="T_enter 0.32")
-                ax_d.axhline(CFG.exit_threshold_m, color=C_EXIT, ls=":", lw=1.2, label="T_exit 0.38")
-            ax_d.axhline(CFG.threshold_m, color=C_THR, ls="--", lw=1.2, label="T 0.35")
-            ax_s.step(t, [1 if r["state"] == "NEAR" else 0 for r in sel], where="post", color=C_FILT, lw=1.6)
+                ax_d.plot(t, [num(r["filtered_distance_m"]) for r in sel], color=FILT, lw=1.6, label="filtered")
+                ax_d.axhline(CFG.enter_threshold_m, color=COND_COLOUR["C2"], ls=":", lw=1.1)
+                ax_d.axhline(CFG.exit_threshold_m, color=COND_COLOUR["C2"], ls=":", lw=1.1)
+            ax_d.axhline(CFG.threshold_m, color=MUTED, ls=":", lw=1.2)
+            ax_s.step(t, [1 if r["state"] == "NEAR" else 0 for r in sel], where="post",
+                      color=COND_COLOUR[cond], lw=1.6)
+            cross, lat, resp = ev[kind]
             for ax in (ax_d, ax_s):
-                cross, resp = ev[f"{kind}_cross"], ev[f"{kind}_resp"]
-                ax.axvline(cross, color="black", ls="--", lw=1.1)
+                ax.axvline(cross, color=INK, ls="--", lw=1.1)
                 if resp is not None:
-                    ax.axvline(resp, color=C_ENTER if kind == "enter" else C_EXIT, lw=1.6)
+                    ax.axvline(resp, color="#8250df", lw=1.5)
                 ax.set_xlim(w0, w1)
-                ax.grid(alpha=0.25)
-            lat = ev[f"{kind}_lat"]
-            ax_d.set_title(
-                f"{cond} - {kind}: latency = {'n/a' if lat is None else f'{lat:.3f} s'}  ({rows[0]['trial_id']})",
-                fontsize=9,
-            )
-            ax_d.set_ylabel("distance (m)")
+            n_sw = sum(1 for r in sel if r["event_label"] in ("ENTER_NEAR", "EXIT_NEAR"))
+            ax_d.set_title(f"{cond} {kind}: first correct after {lat:.3f} s, {n_sw} state switch(es) in window",
+                           fontsize=8.5, color=INK, loc="left")
+            ax_d.set_ylabel("m")
             ax_s.set_yticks([0, 1], ["FAR", "NEAR"])
             ax_s.set_ylim(-0.2, 1.2)
             if block == 1:
                 ax_s.set_xlabel("time (s)")
-            if col == 0:
-                ax_d.legend(fontsize=7, loc="upper right", ncol=2)
-    fig.suptitle("Black dashed = physical crossing of 0.35 m; coloured line = first correct response", fontsize=10)
+            if col == 0 and block == 1:
+                ax_d.legend(fontsize=7.5, loc="upper right", ncol=3)
+    fig.suptitle("Same seed, sigma 0.01 m. Dashed = physical crossing; purple = first correct response; "
+                 "dotted = T (grey), T_enter/T_exit (green)", fontsize=8.8, color=INK)
     fig.savefig(out_path, dpi=160)
     plt.close(fig)
 
 
-def delay_figure(csv_paths: dict[int, Path], out_path: Path) -> None:
-    """C2 state around both crossings for several sensor delays (same trajectory)."""
-    windows = {"enter": (6.5, 8.2), "exit": (12.9, 14.6)}
-    colours = {0: "#161616", 100: C_EXIT, 300: C_FILT}
-    fig, axes = plt.subplots(1, 2, figsize=(11, 3.4), constrained_layout=True)
-    for ax, (kind, (w0, w1)) in zip(axes, windows.items()):
-        for offset, (delay, path) in enumerate(sorted(csv_paths.items())):
-            rows = load(path)
-            ev = events(rows)
-            sel = [r for r in rows if w0 <= float(r["time_s"]) <= w1]
-            ax.step([float(r["time_s"]) for r in sel],
-                    [(1 if r["state"] == "NEAR" else 0) + 0.04 * offset for r in sel],
-                    where="post", color=colours[delay], lw=1.8,
-                    label=f"delay {delay} ms: latency {ev[f'{kind}_lat']:.3f} s")
-        ax.axvline(events(load(next(iter(csv_paths.values()))))[f"{kind}_cross"],
-                   color="black", ls="--", lw=1.1, label="physical crossing")
-        ax.set_yticks([0, 1], ["FAR", "NEAR"])
-        ax.set_xlabel("time (s)")
-        ax.set_title(f"C2, sigma = 0 m - {kind}", fontsize=9)
-        ax.grid(alpha=0.25)
-        ax.legend(fontsize=8, loc="center left" if kind == "enter" else "center right")
+def aggregate(folder: str) -> list[dict[str, str]]:
+    return load(HERE / folder / "summary_aggregate.csv")
+
+
+def noise_figure(out_path: Path) -> None:
+    """Small multiples: extra switches and false trigger vs noise (delay 0)."""
+    sets = {"C1": aggregate("c1_full"), "C2": aggregate("c2_full"), "C3": aggregate("c3_full")}
+    metrics = (("extra_switches", "extra switches per trial"),
+               ("false_trigger_rate_per_min", "false trigger (per min)"),
+               ("recovery_time_s", "recovery time (s)"))
+    fig, axes = plt.subplots(1, 3, figsize=(10, 3.1), constrained_layout=True)
+    for ax, (key, title) in zip(axes, metrics):
+        for cond, rows in sets.items():
+            sel = [r for r in rows if r["delay_ms"] == "0"]
+            x = [float(r["noise_sigma_m"]) for r in sel]
+            y = [float(r[key + "_mean"]) for r in sel]
+            e = [float(r[key + "_sd"]) for r in sel]
+            ax.errorbar(x, y, yerr=e, color=COND_COLOUR[cond], marker="o", ms=5, lw=2, capsize=3,
+                        label=cond)
+            ax.annotate(f"{y[-1]:.1f}" if key != "recovery_time_s" else f"{y[-1]:.2f}",
+                        (x[-1], y[-1]), xytext=(6, 0), textcoords="offset points",
+                        va="center", fontsize=7.5, color=INK)
+        ax.set_title(title, fontsize=9, color=INK, loc="left")
+        ax.set_xticks([0, 0.01, 0.03])
+        ax.set_xlim(-0.003, 0.037)
+        ax.set_xlabel("noise sigma (m)")
+    axes[0].legend(fontsize=8, loc="upper left")
+    fig.suptitle("Noise sweep, delay 0 ms, 5 trials per point (mean ± SD)", fontsize=9.5, color=INK)
     fig.savefig(out_path, dpi=160)
     plt.close(fig)
 
 
-def block(ax, x, y, w, h, text, face="#F1F4F6", edge="#3A4A55", fs=8.8, lw=1.3):
+def delay_figure(out_path: Path) -> None:
+    """Latency enter vs delay: additive at sigma 0, broken for C1 under noise."""
+    sets = {"C1": aggregate("c1_full"), "C2": aggregate("c2_full"), "C3": aggregate("c3_full")}
+    fig, axes = plt.subplots(1, 3, figsize=(10, 3.2), constrained_layout=True, sharey=True)
+    for ax, sigma in zip(axes, ("0.0", "0.01", "0.03")):
+        for cond, rows in sets.items():
+            sel = [r for r in rows if r["noise_sigma_m"] == sigma]
+            x = [int(r["delay_ms"]) for r in sel]
+            y = [float(r["latency_enter_s_mean"]) for r in sel]
+            e = [float(r["latency_enter_s_sd"]) for r in sel]
+            ax.errorbar(x, y, yerr=e, color=COND_COLOUR[cond], marker="o", ms=5, capsize=3, label=cond)
+            ax.plot([0, 300], [y[0], y[0] + 0.3], color=COND_COLOUR[cond], ls=":", lw=1.2)
+        ax.set_title(f"sigma = {float(sigma):.2f} m", fontsize=9, color=INK, loc="left")
+        ax.set_xticks([0, 100, 300])
+        ax.set_xlabel("sensor delay (ms)")
+    axes[0].set_ylabel("latency enter (s)")
+    axes[0].legend(fontsize=8, loc="upper left")
+    fig.suptitle("Latency enter vs delay (mean ± SD, n = 5); dotted = latency at 0 ms + delay (pure shift)",
+                 fontsize=9.5, color=INK)
+    fig.savefig(out_path, dpi=160)
+    plt.close(fig)
+
+
+def c3_figure(csv_path: Path, out_path: Path) -> None:
+    rows = load(csv_path)
+    t = [float(r["time_s"]) for r in rows]
+    u = [float(r["command"]) for r in rows]
+    fig, ax = plt.subplots(figsize=(10, 2.9), constrained_layout=True)
+    ax.plot(t, u, color=COND_COLOUR["C3"], lw=1.4, label="C3 command u")
+    for y in (CFG.command_min, CFG.command_max):
+        ax.axhline(y, color=MUTED, ls="--", lw=1.1)
+    ax.text(0.2, 0.62, "clamp +0.6", fontsize=7.5, color=INK, va="bottom")
+    ax.text(0.2, -0.62, "clamp -0.6", fontsize=7.5, color=INK, va="top")
+    i_min = min(range(len(u)), key=lambda i: u[i])
+    ax.annotate(f"min {u[i_min]:.4f} at {t[i_min]:.2f} s", (t[i_min], u[i_min]), xytext=(40, 26),
+                textcoords="offset points", fontsize=7.5, color=INK,
+                arrowprops={"arrowstyle": "-", "color": MUTED})
+    ax.set_ylim(-0.75, 0.75)
+    ax.set_xlabel("time (s)")
+    ax.set_ylabel("u")
+    ax.set_title(f"{rows[0]['trial_id']} (sigma {rows[0]['noise_sigma_m']} m, delay {rows[0]['delay_ms']} ms; "
+                 "lowest u of all 45 C3 robustness trials)\nu = clamp(2(0.35 - filtered)) never reaches the clamp; "
+                 "the minimum is the first valid sample, where the filter is initialised from one raw value", fontsize=9, color=INK, loc="left")
+    fig.savefig(out_path, dpi=160)
+    plt.close(fig)
+
+
+def box(ax, x, y, w, h, text, face, edge="#57606a", fs=8.3):
     ax.add_patch(FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.02,rounding_size=0.08",
-                                fc=face, ec=edge, lw=lw))
-    ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=fs, linespacing=1.4)
+                                fc=face, ec=edge, lw=1.2))
+    ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=fs, color=INK, linespacing=1.35)
 
 
-def path(ax, points, colour="#3A4A55", dashed=False, lw=1.5):
-    """Polyline with an arrow head on the last segment."""
-    style = "--" if dashed else "-"
-    for p0, p1 in zip(points[:-2], points[1:-1]):
-        ax.plot([p0[0], p1[0]], [p0[1], p1[1]], color=colour, lw=lw, ls=style, solid_capstyle="butt")
-    ax.add_patch(FancyArrowPatch(points[-2], points[-1], arrowstyle="-|>", mutation_scale=14,
-                                 lw=lw, color=colour, linestyle=style, shrinkA=0, shrinkB=0))
+def arrow(ax, pts, colour="#57606a", dashed=False):
+    ls = "--" if dashed else "-"
+    for p0, p1 in zip(pts[:-2], pts[1:-1]):
+        ax.plot([p0[0], p1[0]], [p0[1], p1[1]], color=colour, lw=1.4, ls=ls)
+    ax.add_patch(FancyArrowPatch(pts[-2], pts[-1], arrowstyle="-|>", mutation_scale=13, lw=1.4,
+                                 color=colour, linestyle=ls, shrinkA=0, shrinkB=0))
 
 
-def label(ax, x, y, text, colour="#3A4A55", ha="center", va="bottom", fs=7.6):
+def note(ax, x, y, text, colour=INK, ha="center", va="bottom", fs=7.5):
     ax.text(x, y, text, ha=ha, va=va, fontsize=fs, color=colour, linespacing=1.25)
 
 
 def block_diagram(out_path: Path) -> None:
-    fig, ax = plt.subplots(figsize=(16.2, 7.8))
-    ax.set_xlim(0, 16.2)
-    ax.set_ylim(0, 7.8)
+    fig, ax = plt.subplots(figsize=(15, 7))
+    ax.set_xlim(0, 15)
+    ax.set_ylim(0, 7)
     ax.axis("off")
-    ink, red, purple, grey = "#3A4A55", C_THR, "#6B4C9A", "#7A8A94"
-
-    ax.text(0.5, 7.55, "Sensorimotor loop in the Lab 02 simulator  (dt = 0.02 s, 1001 samples per 20 s trial)",
-            fontsize=11, fontweight="bold", color=ink, va="center")
-
-    # Row A: main signal chain
-    ya, ha_, w, gap = 4.7, 1.3, 2.3, 0.9
-    xs = [0.5 + i * (w + gap) for i in range(5)]
-    block(ax, xs[0], ya, w, ha_, "Physical world\nhand / object\ntrue distance d(t)", face="#E8F1F4")
-    block(ax, xs[1], ya, w, ha_, "Sensor model\n+ noise n ~ N(0, sigma^2)\n+ delay tau", face="#FBEFD9")
-    block(ax, xs[2], ya, w, ha_, "Validity check\nmissing / non-finite /\nout of 0.02-4.0 m", face="#F1F4F6")
-    block(ax, xs[3], ya, w, ha_, "Low-pass filter (TODO 1)\ny[k] = b*x[k] + (1-b)*y[k-1]\nbeta = 0.25", face="#E3F2EC", fs=8.2)
-    block(ax, xs[4], ya, w, ha_, "Decision rule\nC1 / C2 / C3\nstate: FAR / NEAR", face="#E3F2EC")
-    ymid = ya + ha_ / 2
-    for i, text in enumerate(["true_\ndistance_m", "raw_\ndistance_m", "valid = 1", "filtered_\ndistance_m"]):
-        path(ax, [(xs[i] + w, ymid), (xs[i + 1], ymid)])
-        label(ax, xs[i] + w + gap / 2, ymid + 0.1, text)
-
-    # Row B: actuator, invalid path, C0 timer
-    yb, hb = 2.5, 1.2
-    block(ax, xs[4], yb, w, hb, "Actuator (lamp)\nnormalized command u\nin [-0.6, 0.6]", face="#FBEFD9")
-    path(ax, [(xs[4] + w / 2, ya), (xs[4] + w / 2, yb + hb)], colour=ink)
-    label(ax, xs[4] + w / 2 - 0.1, 4.05, "state, command", ha="right")
-
-    block(ax, xs[2], yb, w, hb, "valid = 0\nsafe_command() = 0\nstate kept, event = INVALID",
-          face="#F8E4E4", edge=red, fs=8.2)
-    path(ax, [(xs[2] + w / 2, ya), (xs[2] + w / 2, yb + hb)], colour=red)
-    label(ax, xs[2] + w / 2 + 0.12, 4.05, "valid = 0", colour=red, ha="left")
-    path(ax, [(xs[2] + w, yb + hb / 2), (xs[4], yb + hb / 2)], colour=red)
-    label(ax, (xs[2] + w + xs[4]) / 2, yb + hb / 2 + 0.08, "u = 0 (stale / invalid sample)", colour=red)
-
-    block(ax, 0.5, yb, 5.2, hb,
-          "C0 open loop: timer only\nNEAR for 4 <= t < 16 s, no sensor,\nno feedback", face="#EFEFEF", fs=8.4)
-    y_route = 2.05
-    path(ax, [(3.1, yb), (3.1, y_route), (xs[4] + w * 0.8, y_route), (xs[4] + w * 0.8, yb)], colour=grey)
-    label(ax, 8.6, y_route + 0.06, "C0: state, command from the timer (bypasses sensor, validity check and filter)", colour=grey)
-
-    # Row C: decision rules
-    yc, hc, wc = 0.35, 1.35, 4.85
-    block(ax, 0.5, yc, wc, hc,
-          "C1 single threshold  (TODO 2)\nuses raw distance\nraw < T = 0.35 m -> NEAR, u = 0.6;  else FAR, u = 0",
-          face="#FFFFFF", fs=8.2)
-    block(ax, 0.5 + wc + 0.3, yc, wc, hc,
-          "C2 filter + hysteresis  (TODO 3)\nFAR -> NEAR if filtered < 0.32 m\nNEAR -> FAR if filtered > 0.38 m; else keep state",
-          face="#FFFFFF", fs=8.2)
-    block(ax, 0.5 + 2 * (wc + 0.3), yc, wc, hc,
-          "C3 proportional + clamp  (TODO 4)\nu = clamp(Kp*(0.35 - filtered), -0.6, 0.6),  Kp = 2\nstate = NEAR if filtered < 0.35 m",
-          face="#FFFFFF", fs=8.2)
-
-    # feedback path (concept only)
-    xr = xs[4] + w
-    path(ax, [(xr, yb + hb / 2), (16.0, yb + hb / 2), (16.0, 6.7), (xs[0] + w / 2, 6.7), (xs[0] + w / 2, ya + ha_)],
-         colour=purple, dashed=True)
-    label(ax, 8.2, 6.78,
-          "feedback: lamp motion / light changes what the sensor sees.  NOT simulated in Lab 02:\n"
-          "true_distance_m follows a fixed 20 s trajectory, so the command does not change the next sample",
-          colour=purple, fs=8.4)
+    red, purple, grey = "#cf222e", "#8250df", "#6e7781"
+    ax.text(0.3, 6.75, "Lab 02 sensorimotor loop (simulator, dt = 0.02 s, 1001 samples per 20 s trial)",
+            fontsize=11, fontweight="bold", color=INK, va="center")
+    y, h, w, gap = 4.2, 1.25, 2.45, 0.55
+    xs = [0.3 + i * (w + gap) for i in range(5)]
+    box(ax, xs[0], y, w, h, "Physical world\nhand approaches lamp\ntrue distance d(t)", "#e7f0fb")
+    box(ax, xs[1], y, w, h, "Sensor model\n+ Gaussian noise sigma\n+ delay tau (FIFO)", "#fdf0e9")
+    box(ax, xs[2], y, w, h, "Validity check\nmissing / non-finite /\noutside 0.02-4.0 m", "#f6f8fa")
+    box(ax, xs[3], y, w, h, "Low-pass filter (TODO 1)\nd^[k] = b d[k] + (1-b) d^[k-1]\nb = 0.25", "#e8f7f1", fs=7.6)
+    box(ax, xs[4], y, w, h, "Decision rule\nC1 / C2 / C3 (TODO 2-4)\nstate FAR / NEAR", "#e8f7f1")
+    ym = y + h / 2
+    for i, txt in enumerate(["d(t)", "d[k]", "valid", "d^[k]"]):
+        arrow(ax, [(xs[i] + w, ym), (xs[i + 1], ym)])
+        note(ax, xs[i] + w + gap / 2, ym + 0.08, txt)
+    yb, hb = 2.2, 1.15
+    box(ax, xs[4], yb, w, hb, "Actuator (lamp)\nnormalized command u\nclamp [-0.6, 0.6]", "#fdf6e3")
+    arrow(ax, [(xs[4] + w / 2, y), (xs[4] + w / 2, yb + hb)])
+    note(ax, xs[4] + w / 2 + 0.08, 3.6, "state, u", ha="left")
+    box(ax, xs[2], yb, w, hb, "invalid sample\nsafe_command() = 0\nstate held, INVALID", "#ffebe9", edge=red, fs=8)
+    arrow(ax, [(xs[2] + w / 2, y), (xs[2] + w / 2, yb + hb)], colour=red)
+    note(ax, xs[2] + w / 2 + 0.08, 3.6, "valid = 0", colour=red, ha="left")
+    arrow(ax, [(xs[2] + w, yb + hb / 2), (xs[4], yb + hb / 2)], colour=red)
+    note(ax, (xs[2] + w + xs[4]) / 2, yb + hb / 2 + 0.06, "u = 0", colour=red)
+    box(ax, 0.3, yb, 5.1, hb, "C0 open loop: timer only\nNEAR for 4 <= t < 16 s, u = 0.6\nno sensor, no feedback",
+        "#f6f8fa", fs=8)
+    arrow(ax, [(2.85, yb), (2.85, 1.8), (xs[4] + w * 0.8, 1.8), (xs[4] + w * 0.8, yb)], colour=grey)
+    note(ax, 8.0, 1.83, "C0 bypasses sensor, validity check and filter", colour=grey)
+    yc, hc, wc = 0.15, 1.25, 4.65
+    rules = ["C1 single threshold (TODO 2)\nraw d < 0.35 m -> NEAR, u = 0.6\nelse FAR, u = 0",
+             "C2 hysteresis (TODO 3)\nFAR -> NEAR if d^ < 0.32 m\nNEAR -> FAR if d^ > 0.38 m, else hold",
+             "C3 proportional (TODO 4)\nu = clamp(2 (0.35 - d^), -0.6, 0.6)\nstate NEAR if d^ < 0.35 m"]
+    for i, txt in enumerate(rules):
+        box(ax, 0.3 + i * (wc + 0.25), yc, wc, hc, txt, "#ffffff", fs=8)
+    arrow(ax, [(xs[4] + w, yb + hb / 2), (14.8, yb + hb / 2), (14.8, 6.2), (xs[0] + w / 2, 6.2),
+               (xs[0] + w / 2, y + h)], colour=purple, dashed=True)
+    note(ax, 7.6, 6.27, "feedback on a real robot: lamp motion changes what the sensor sees. "
+         "NOT simulated here: d(t) is a fixed trajectory, so u never changes the next sample",
+         colour=purple, fs=8)
     fig.savefig(out_path, dpi=170, bbox_inches="tight")
     plt.close(fig)
 
@@ -272,13 +297,12 @@ def block_diagram(out_path: Path) -> None:
 def main() -> None:
     OUT.mkdir(exist_ok=True)
     cmp_dir = HERE / "student_comparison" / "trials"
-    full_dir = HERE / "c2_full" / "trials"
     trial_figure(cmp_dir / "C1_n0.01_d000_r01.csv", OUT / "fig1_C1_trial.png")
     trial_figure(cmp_dir / "C2_n0.01_d000_r01.csv", OUT / "fig2_C2_trial.png")
-    zoom_figure(cmp_dir / "C1_n0.01_d000_r01.csv", cmp_dir / "C2_n0.01_d000_r01.csv",
-                OUT / "fig3_C1_vs_C2_zoom.png")
-    delay_figure({d: full_dir / f"C2_n0.00_d{d:03d}_r01.csv" for d in (0, 100, 300)},
-                 OUT / "fig4_C2_delay.png")
+    zoom_figure(cmp_dir / "C1_n0.01_d000_r01.csv", cmp_dir / "C2_n0.01_d000_r01.csv", OUT / "fig3_C1_vs_C2_zoom.png")
+    noise_figure(OUT / "fig4_noise_sweep.png")
+    delay_figure(OUT / "fig5_delay_sweep.png")
+    c3_figure(HERE / "c3_full" / "trials" / "C3_n0.03_d100_r02.csv", OUT / "fig6_C3_command.png")
     block_diagram(OUT / "block_diagram.png")
     print("figures written to:", OUT)
 

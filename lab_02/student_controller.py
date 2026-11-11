@@ -31,38 +31,25 @@ class StudentController:
         self.filtered_distance: float | None = None
 
     def update_filter(self, raw_distance_m: float) -> float:
-        """TODO 1: first-order low-pass filter (exponential moving average).
+        """TODO 1: implement the low-pass recurrence from slide 14.
 
-        y[k] = beta * x[k] + (1 - beta) * y[k-1], with y[0] = x[0].
-        A smaller beta smooths noise more but makes the filtered value lag
-        behind the true distance.
+        d_hat[k] = beta * d[k] + (1 - beta) * d_hat[k-1]; the first valid
+        sample initialises the filter so it does not start from zero.
         """
         if self.filtered_distance is None:
-            # First valid sample: there is no history yet, so start from it.
             self.filtered_distance = raw_distance_m
         else:
             beta = self.p.beta
-            self.filtered_distance = (
-                beta * raw_distance_m + (1.0 - beta) * self.filtered_distance
-            )
+            self.filtered_distance = beta * raw_distance_m + (1.0 - beta) * self.filtered_distance
         return self.filtered_distance
 
     def update_state_single_threshold(self, distance_m: float) -> str:
-        """TODO 2: NEAR when distance < T, otherwise FAR.
-
-        The comparison is strict, so a distance exactly equal to T is FAR.
-        """
+        """TODO 2: set NEAR below T and FAR otherwise."""
         self.state = "NEAR" if distance_m < self.p.threshold_m else "FAR"
         return self.state
 
     def update_state_hysteresis(self, distance_m: float) -> str:
-        """TODO 3: two thresholds with a dead band between them.
-
-        FAR  -> NEAR only when distance < T_enter (0.32 m)
-        NEAR -> FAR  only when distance > T_exit  (0.38 m)
-        Inside the band [T_enter, T_exit] the previous state is kept, so noise
-        around T cannot make the state chatter.
-        """
+        """TODO 3: change state only at T_enter or T_exit."""
         if self.state == "FAR" and distance_m < self.p.enter_threshold_m:
             self.state = "NEAR"
         elif self.state == "NEAR" and distance_m > self.p.exit_threshold_m:
@@ -70,12 +57,7 @@ class StudentController:
         return self.state
 
     def proportional_command(self, distance_m: float) -> float:
-        """TODO 4: proportional control with output clamp.
-
-        error   = target_distance - distance   (positive when the hand is closer
-                                                than the target)
-        command = Kp * error, limited to [command_min, command_max]
-        """
+        """TODO 4: calculate Kp * error and clamp the command."""
         error = self.p.target_distance_m - distance_m
         command = self.p.kp * error
         return max(self.p.command_min, min(self.p.command_max, command))

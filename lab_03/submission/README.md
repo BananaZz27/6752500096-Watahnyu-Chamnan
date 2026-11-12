@@ -13,6 +13,7 @@
 | 6 | กราฟตัวแทนอย่างน้อยสองเงื่อนไข | `figures/fig1_gait_three_conditions.png` (o₁, o₂ + gait diagram ทั้งสาม condition), `figures/fig2_phase_portrait.png`, `figures/fig3_metrics.png`, `figures/fig4_week4_bridge.png` |
 | — | Block diagram | `figures/block_diagram.png` |
 | 7 | รายงาน 1–2 หน้า | `report.docx` (2 หน้า) |
+| — | คู่มือนักศึกษาที่ตอบคำถามครบ (prediction ข้อ 6, ผลขั้น B–D, คำถามวิเคราะห์ข้อ 12 ทั้ง 6 ข้อ, checklist) | `Lab03_Student_Manual_TH_answered.docx` (ต้นฉบับเปล่าอยู่ที่ `../Lab03_Student_Manual_TH.docx`) |
 
 `make_figures.py` อ่านเฉพาะ raw CSV แล้วสร้างกราฟทั้งหมดและ `analysis.json` (amplitude, มุมหมุนต่อ step, คาบเป็นจำนวน step, การตรวจ antiphase, transient ของ bridge) และตรวจว่า `so2_step` / `decode_tripod` ของนักศึกษาให้ค่าตรงกับ raw CSV ของ reference ทุก sample
 

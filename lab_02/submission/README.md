@@ -13,6 +13,7 @@
 | — | กราฟวิเคราะห์ noise / delay / C3 | `figures/fig4_noise_sweep.png`, `figures/fig5_delay_sweep.png`, `figures/fig6_C3_command.png` |
 | — | ใบงานบันทึกผล + คำถามวิเคราะห์ + เทียบ prediction | `worksheet.md` |
 | 6 | รายงาน 1–2 หน้า | `report.docx` (2 หน้า) |
+| — | คู่มือนักศึกษาที่ตอบคำถามครบ (สมมติฐาน ขั้นที่ 1, ตารางใบงาน, คำถามวิเคราะห์ 4 ข้อ) | `Lab02_Student_Manual_TH_answered.docx` (ต้นฉบับเปล่าอยู่ที่ `../Lab02_Student_Manual_TH.docx`) |
 
 ## รันซ้ำ
 
